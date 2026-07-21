@@ -1,0 +1,711 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Narration Maker — watsonx Challenge 2026 · Japan ES Bob Challenge</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #f0f2f5;
+      --surface: #ffffff;
+      --border: #d1d5db;
+      --text: #1f2328;
+      --muted: #6b7280;
+      --accent: #3b82f6;
+      --accent-hover: #2563eb;
+      --danger: #ef4444;
+      --playing: #10b981;
+      --radius: 12px;
+    }
+
+    body {
+      font-family: -apple-system, "Segoe UI", system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 14px 24px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    header h1 { font-size: 18px; font-weight: 700; flex: 1; }
+    header h1 span { color: var(--accent); }
+    header h1 small { font-size: 12px; font-weight: 400; color: var(--muted); margin-left: 10px; }
+
+    .header-controls { display: flex; align-items: center; gap: 10px; }
+
+    select, button {
+      font-family: inherit;
+      font-size: 13px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      cursor: pointer;
+      padding: 6px 12px;
+      transition: background 0.15s, border-color 0.15s;
+    }
+    select:focus, button:focus { outline: 2px solid var(--accent); outline-offset: 2px; }
+    select:hover { border-color: var(--accent); }
+
+    button.primary {
+      background: var(--accent);
+      color: #fff;
+      border-color: var(--accent);
+      font-weight: 600;
+    }
+    button.primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+
+    button.danger {
+      background: transparent;
+      color: var(--danger);
+      border-color: var(--danger);
+    }
+    button.danger:hover { background: var(--danger); color: #fff; }
+
+    .slider-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .slider-row input[type=range] {
+      width: 72px;
+      padding: 0;
+      border: none;
+      accent-color: var(--accent);
+      cursor: pointer;
+    }
+    .slider-val { min-width: 28px; text-align: right; }
+
+    .voice-badge {
+      font-size: 11px;
+      background: #ddf4ff;
+      color: #0550ae;
+      border: 1px solid #93c5fd;
+      border-radius: 20px;
+      padding: 2px 10px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    .voice-badge.female { background: #fce7f3; color: #9d174d; border-color: #f9a8d4; }
+    .voice-badge.unknown { background: #f7f8fa; color: #57606a; border-color: #d1d5db; }
+
+    #male-voice-tip {
+      display: none;
+      background: #fffbeb;
+      border: 1px solid #fde68a;
+      border-radius: 8px;
+      padding: 10px 16px;
+      font-size: 12px;
+      color: #92400e;
+      line-height: 1.6;
+      margin: 0 24px;
+    }
+    #male-voice-tip strong { font-weight: 700; }
+    #male-voice-tip code {
+      background: rgba(0,0,0,.07);
+      padding: 1px 5px;
+      border-radius: 3px;
+      font-family: "Consolas", "Cascadia Code", monospace;
+    }
+
+    #browser-tip {
+      display: none;
+      background: #fff1f2;
+      border: 1px solid #fca5a5;
+      border-radius: 8px;
+      padding: 10px 16px;
+      font-size: 12px;
+      color: #991b1b;
+      line-height: 1.6;
+      margin: 0 24px 0;
+    }
+    #browser-tip strong { font-weight: 700; }
+    #browser-tip a { color: #b91c1c; }
+
+    main { flex: 1; padding: 24px; }
+
+    #tile-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 16px;
+    }
+
+    .tile {
+      background: var(--surface);
+      border: 2px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      cursor: pointer;
+      transition: border-color 0.15s, box-shadow 0.15s, transform 0.1s;
+      position: relative;
+      user-select: none;
+    }
+    .tile:hover { border-color: var(--accent); box-shadow: 0 2px 12px rgba(59,130,246,.15); }
+    .tile.playing {
+      border-color: var(--playing);
+      box-shadow: 0 0 0 3px rgba(16,185,129,.2);
+    }
+    .tile.drag-over { border-color: var(--accent); opacity: 0.7; }
+
+    .tile-label {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+      color: var(--muted);
+    }
+
+    .tile-text {
+      font-size: 14px;
+      line-height: 1.55;
+      flex: 1;
+      word-break: break-word;
+      min-height: 48px;
+    }
+
+    .tile-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .play-icon {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: var(--accent);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      transition: background 0.15s;
+    }
+    .tile.playing .play-icon { background: var(--playing); }
+    .play-icon svg { width: 12px; height: 12px; fill: #fff; }
+
+    .tile-actions {
+      display: flex;
+      gap: 4px;
+      opacity: 0;
+      transition: opacity 0.15s;
+    }
+    .tile:hover .tile-actions { opacity: 1; }
+    .tile-actions button {
+      padding: 3px 7px;
+      font-size: 11px;
+      border-radius: 6px;
+    }
+
+    .tile-add {
+      border: 2px dashed var(--border);
+      background: transparent;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      min-height: 120px;
+      border-radius: var(--radius);
+      cursor: pointer;
+      color: var(--muted);
+      font-size: 13px;
+      transition: border-color 0.15s, color 0.15s;
+    }
+    .tile-add:hover { border-color: var(--accent); color: var(--accent); }
+    .tile-add svg { width: 28px; height: 28px; stroke: currentColor; fill: none; stroke-width: 1.5; }
+
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,.4);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 200;
+      padding: 16px;
+    }
+    .modal-backdrop.hidden { display: none; }
+
+    .modal {
+      background: var(--surface);
+      border-radius: var(--radius);
+      padding: 24px;
+      width: 100%;
+      max-width: 420px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .modal h2 { font-size: 16px; font-weight: 700; }
+
+    label { font-size: 13px; font-weight: 600; display: flex; flex-direction: column; gap: 6px; }
+    input[type=text], textarea {
+      font-family: inherit;
+      font-size: 14px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 12px;
+      width: 100%;
+      transition: border-color 0.15s;
+      resize: vertical;
+    }
+    input[type=text]:focus, textarea:focus {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+      border-color: var(--accent);
+    }
+    textarea { min-height: 100px; }
+    .modal-actions { display: flex; justify-content: flex-end; gap: 8px; }
+
+    #stop-btn { display: none; }
+    #stop-btn.visible { display: inline-flex; }
+
+    #empty-msg {
+      grid-column: 1 / -1;
+      text-align: center;
+      color: var(--muted);
+      padding: 48px 0;
+      font-size: 14px;
+      display: none;
+    }
+
+    .drag-handle {
+      position: absolute;
+      top: 8px;
+      left: 10px;
+      color: var(--border);
+      font-size: 14px;
+      line-height: 1;
+      cursor: grab;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>Narration <span>Maker</span><small>watsonx Challenge 2026 — Japan ES Bob Challenge</small></h1>
+  <div class="header-controls">
+    <label class="slider-row">
+      Speed
+      <input type="range" id="rate-slider" min="0.5" max="2" step="0.1" value="1" />
+      <span class="slider-val" id="rate-val">1.0</span>
+    </label>
+    <label class="slider-row">
+      Pitch
+      <input type="range" id="pitch-slider" min="0.5" max="2" step="0.1" value="1" />
+      <span class="slider-val" id="pitch-val">1.0</span>
+    </label>
+    <select id="voice-select" title="Voice"></select>
+    <span class="voice-badge" id="voice-badge">detecting…</span>
+    <button id="stop-btn" class="danger">&#9209; Stop</button>
+    <button class="primary" id="add-btn">+ Add Tile</button>
+  </div>
+</header>
+<div id="browser-tip">
+  <strong>⚠ Microsoft Edge を推奨します。</strong>
+  Firefox や Chrome では <code>Microsoft Guy / Christopher / Roger Online (Natural)</code> などの高品質 Online 音声が利用できません。
+  このページを Edge で開いてください：
+  <a href="#" id="open-in-edge-link">Edge で開く</a>
+</div>
+<div id="male-voice-tip">
+  <strong>&#9794; No male English voice detected on this system.</strong>
+  To add Microsoft David (US male) or Microsoft Mark (US male), go to
+  <strong>Settings → Time &amp; Language → Speech → Add voices</strong> and install
+  <code>English (United States)</code> — then reload this page.
+  In the meantime the best available English voice has been selected; you can change it in the dropdown above.
+</div>
+
+<main>
+  <div id="tile-grid">
+    <p id="empty-msg">Click "Add Tile" to create your first narration card.</p>
+    <div class="tile-add" id="add-tile-card" title="Add Tile">
+      <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      Add Tile
+    </div>
+  </div>
+</main>
+
+<div class="modal-backdrop hidden" id="modal-backdrop">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <h2 id="modal-title">Add Tile</h2>
+    <label>
+      Label (optional)
+      <input type="text" id="modal-label" placeholder="e.g. Slide 01, Opening …" maxlength="40" />
+    </label>
+    <label>
+      Narration text
+      <textarea id="modal-text" placeholder="Enter the text to be read aloud…"></textarea>
+    </label>
+    <div class="modal-actions">
+      <button id="modal-cancel">Cancel</button>
+      <button class="primary" id="modal-save">Save</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  const STORAGE_KEY = 'narration_tiles_wx2026_challenge_v1';
+  let tiles = [];
+  let editingId = null;
+  let voices = [];
+  let dragSrcIndex = null;
+
+  function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2); }
+  function save() { localStorage.setItem(STORAGE_KEY, JSON.stringify(tiles)); }
+  function load() {
+    try { tiles = JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; } catch { tiles = []; }
+  }
+
+  const synth = window.speechSynthesis;
+
+  /* ── Voice detection helpers ── */
+  // Match male names anywhere in the full voice name string (handles "Microsoft David Desktop" etc.)
+  const MALE_NAMES  = /david|mark|guy|aaron|fred|tom\b|paul|james|eric|oliver|reed|ryan|arthur|eddy|rishi|bruce|george|ken\b|alex|daniel|thomas|stefan|luca|jorge|carlos|diego|pablo|junior|superstar|richard|christopher|andrew|christopher|william|hazel(?!.*hazel)|peter|john|tony/i;
+  const EN_US_LANG  = /^en[-_](US|us)/;
+  const EN_LANG     = /^en/;
+  // Female names — used to exclude from male picks
+  const FEMALE_NAMES = /zira|samantha|victoria|karen|moira|veena|fiona|tessa|nora|sara\b|anna\b|amelie|alice|ioana|luciana|isabella|joana|laura|paulina|lekha|sin-ji|mei-jia|ting-ting|lily|yuri|kyoko|haruka|mizuki|kate\b|susan|linda|emily|jennifer|julie|claire|lea\b|nathalie|hazel|heather|natasha|cortana/i;
+
+  function isMale(v)   { return MALE_NAMES.test(v.name) && !FEMALE_NAMES.test(v.name); }
+  function isFemale(v) { return FEMALE_NAMES.test(v.name); }
+
+  function genderLabel(v) {
+    if (isMale(v))   return ' ♂';
+    if (isFemale(v)) return ' ♀';
+    return '';
+  }
+
+  function updateBadge(v) {
+    const badge = document.getElementById('voice-badge');
+    badge.className = 'voice-badge';
+    if (isMale(v)) {
+      badge.classList.add('male');
+      badge.textContent = '♂ ' + v.name + ' (' + v.lang + ')';
+    } else if (isFemale(v)) {
+      badge.classList.add('female');
+      badge.textContent = '♀ ' + v.name + ' (' + v.lang + ') — not male';
+    } else {
+      badge.classList.add('unknown');
+      badge.textContent = '? ' + v.name + ' (' + v.lang + ')';
+    }
+  }
+
+  function loadVoices() {
+    voices = synth.getVoices();
+    if (voices.length === 0) return;   // not ready yet; onvoiceschanged will fire again
+
+    const sel = document.getElementById('voice-select');
+    sel.innerHTML = '';
+
+    const groups = {
+      enUS:  { label: '🇺🇸 English (US)',  voices: [] },
+      enOth: { label: '🇬🇧 English (Other)', voices: [] },
+      other: { label: '🌐 Other', voices: [] },
+    };
+
+    voices.forEach((v, i) => {
+      const entry = { v, i };
+      if (EN_US_LANG.test(v.lang))      groups.enUS.voices.push(entry);
+      else if (EN_LANG.test(v.lang))    groups.enOth.voices.push(entry);
+      else                              groups.other.voices.push(entry);
+    });
+
+    ['enUS', 'enOth', 'other'].forEach(key => {
+      const g = groups[key];
+      if (g.voices.length === 0) return;
+      const grp = document.createElement('optgroup');
+      grp.label = g.label;
+      g.voices.forEach(({ v, i }) => {
+        const opt = document.createElement('option');
+        opt.value = i;
+        opt.textContent = v.name + genderLabel(v) + ' (' + v.lang + ')';
+        grp.appendChild(opt);
+      });
+      sel.appendChild(grp);
+    });
+
+    /* ── Auto-select best male English voice ── */
+    // P1: named male en-US (David, Mark, Guy, Aaron …)
+    let pick = voices.findIndex(v => EN_US_LANG.test(v.lang) && isMale(v));
+    // P2: named male any English (George en-GB, etc.)
+    if (pick === -1) pick = voices.findIndex(v => EN_LANG.test(v.lang) && isMale(v));
+    // P3: named male any language
+    if (pick === -1) pick = voices.findIndex(v => isMale(v));
+    // P4: en-US non-female (edge: unrecognised name)
+    if (pick === -1) pick = voices.findIndex(v => EN_US_LANG.test(v.lang) && !isFemale(v));
+    // P5: any en-US voice
+    if (pick === -1) pick = voices.findIndex(v => EN_US_LANG.test(v.lang));
+    // P6: any English voice
+    if (pick === -1) pick = voices.findIndex(v => EN_LANG.test(v.lang));
+    // Fallback: first available
+    if (pick === -1 && voices.length > 0) pick = 0;
+
+    const tip = document.getElementById('male-voice-tip');
+    if (pick !== -1) {
+      sel.value = pick;
+      updateBadge(voices[pick]);
+      // Show tip only if we couldn't find any male voice at all
+      tip.style.display = isMale(voices[pick]) ? 'none' : 'block';
+    }
+  }
+
+  if (speechSynthesis.onvoiceschanged !== undefined) {
+    speechSynthesis.onvoiceschanged = loadVoices;
+  }
+  loadVoices();
+
+  /* ── Browser tip: show warning if not Edge ── */
+  (function() {
+    const isEdge = /Edg\//.test(navigator.userAgent);
+    if (!isEdge) {
+      const tip = document.getElementById('browser-tip');
+      tip.style.display = 'block';
+      // Build "open in Edge" link using current page URL
+      const link = document.getElementById('open-in-edge-link');
+      link.href = 'microsoft-edge:' + location.href;
+    }
+  })();
+
+  /* Update badge when user manually changes voice */
+  document.getElementById('voice-select').addEventListener('change', e => {
+    const idx = parseInt(e.target.value);
+    if (voices[idx]) {
+      updateBadge(voices[idx]);
+      document.getElementById('male-voice-tip').style.display =
+        isMale(voices[idx]) ? 'none' : 'block';
+    }
+  });
+
+  /* ── Speech ── */
+  function speak(text, tileEl) {
+    synth.cancel();
+    clearPlayingState();
+    const utter = new SpeechSynthesisUtterance(text);
+    const voiceIdx = parseInt(document.getElementById('voice-select').value);
+    if (voices[voiceIdx]) utter.voice = voices[voiceIdx];
+    utter.rate  = parseFloat(document.getElementById('rate-slider').value);
+    utter.pitch = parseFloat(document.getElementById('pitch-slider').value);
+    if (tileEl) {
+      tileEl.classList.add('playing');
+      document.getElementById('stop-btn').classList.add('visible');
+    }
+    utter.onend = () => {
+      clearPlayingState();
+      document.getElementById('stop-btn').classList.remove('visible');
+    };
+    utter.onerror = () => {
+      clearPlayingState();
+      document.getElementById('stop-btn').classList.remove('visible');
+    };
+    synth.speak(utter);
+  }
+
+  function clearPlayingState() {
+    document.querySelectorAll('.tile.playing').forEach(el => el.classList.remove('playing'));
+  }
+
+  document.getElementById('stop-btn').addEventListener('click', () => {
+    synth.cancel();
+    clearPlayingState();
+    document.getElementById('stop-btn').classList.remove('visible');
+  });
+
+  document.getElementById('rate-slider').addEventListener('input', e => {
+    document.getElementById('rate-val').textContent = parseFloat(e.target.value).toFixed(1);
+  });
+  document.getElementById('pitch-slider').addEventListener('input', e => {
+    document.getElementById('pitch-val').textContent = parseFloat(e.target.value).toFixed(1);
+  });
+
+  /* ── Render ── */
+  function render() {
+    const grid = document.getElementById('tile-grid');
+    grid.querySelectorAll('.tile').forEach(el => el.remove());
+    document.getElementById('empty-msg').style.display = tiles.length === 0 ? 'block' : 'none';
+
+    tiles.forEach((tile, idx) => {
+      const el = document.createElement('div');
+      el.className = 'tile';
+      el.dataset.id = tile.id;
+      el.draggable = true;
+      el.innerHTML = `
+        <span class="drag-handle" title="Drag to reorder">&#8287;</span>
+        <div class="tile-label">${escHtml(tile.label || '\u00a0')}</div>
+        <div class="tile-text">${escHtml(tile.text)}</div>
+        <div class="tile-footer">
+          <div class="tile-actions">
+            <button class="edit-btn" data-id="${tile.id}" title="Edit">&#9998;</button>
+            <button class="danger delete-btn" data-id="${tile.id}" title="Delete">&#128465;</button>
+          </div>
+          <div class="play-icon">
+            <svg viewBox="0 0 10 12"><polygon points="0,0 10,6 0,12"/></svg>
+          </div>
+        </div>`;
+
+      el.addEventListener('click', e => {
+        if (e.target.closest('.tile-actions')) return;
+        speak(tile.text, el);
+      });
+      el.querySelector('.edit-btn').addEventListener('click', e => {
+        e.stopPropagation();
+        openModal(tile.id);
+      });
+      el.querySelector('.delete-btn').addEventListener('click', e => {
+        e.stopPropagation();
+        if (confirm(`Delete "${tile.label || tile.text.slice(0, 30)}"?`)) {
+          tiles = tiles.filter(t => t.id !== tile.id);
+          save(); render();
+        }
+      });
+      el.addEventListener('dragstart', () => { dragSrcIndex = idx; el.style.opacity = '0.5'; });
+      el.addEventListener('dragend',   () => { el.style.opacity = ''; clearDragOver(); });
+      el.addEventListener('dragover',  e => { e.preventDefault(); el.classList.add('drag-over'); });
+      el.addEventListener('dragleave', () => el.classList.remove('drag-over'));
+      el.addEventListener('drop', e => {
+        e.preventDefault();
+        el.classList.remove('drag-over');
+        if (dragSrcIndex === null || dragSrcIndex === idx) return;
+        const moved = tiles.splice(dragSrcIndex, 1)[0];
+        tiles.splice(idx, 0, moved);
+        dragSrcIndex = null;
+        save(); render();
+      });
+      grid.insertBefore(el, document.getElementById('add-tile-card'));
+    });
+  }
+
+  function clearDragOver() {
+    document.querySelectorAll('.tile.drag-over').forEach(el => el.classList.remove('drag-over'));
+  }
+
+  function escHtml(s) {
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  /* ── Modal ── */
+  function openModal(id) {
+    editingId = id || null;
+    const tile = id ? tiles.find(t => t.id === id) : null;
+    document.getElementById('modal-title').textContent = id ? 'Edit Tile' : 'Add Tile';
+    document.getElementById('modal-label').value = tile ? tile.label : '';
+    document.getElementById('modal-text').value  = tile ? tile.text  : '';
+    document.getElementById('modal-backdrop').classList.remove('hidden');
+    document.getElementById('modal-text').focus();
+  }
+
+  function closeModal() {
+    document.getElementById('modal-backdrop').classList.add('hidden');
+    editingId = null;
+  }
+
+  document.getElementById('add-btn').addEventListener('click', () => openModal(null));
+  document.getElementById('add-tile-card').addEventListener('click', () => openModal(null));
+  document.getElementById('modal-cancel').addEventListener('click', closeModal);
+  document.getElementById('modal-backdrop').addEventListener('click', e => {
+    if (e.target === e.currentTarget) closeModal();
+  });
+  document.getElementById('modal-save').addEventListener('click', () => {
+    const text  = document.getElementById('modal-text').value.trim();
+    const label = document.getElementById('modal-label').value.trim();
+    if (!text) { document.getElementById('modal-text').focus(); return; }
+    if (editingId) {
+      const t = tiles.find(t => t.id === editingId);
+      if (t) { t.text = text; t.label = label; }
+    } else {
+      tiles.push({ id: uid(), label, text });
+    }
+    save(); render(); closeModal();
+  });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') closeModal();
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+      if (!document.getElementById('modal-backdrop').classList.contains('hidden')) {
+        document.getElementById('modal-save').click();
+      }
+    }
+  });
+
+  /* ── Init ── */
+  load();
+  render();
+
+  /* ── Pre-load watsonx Challenge 2026 presentation script on first visit ── */
+  if (tiles.length === 0) {
+    tiles = [
+      {
+        id: uid(),
+        label: 'Slide 01 · Cover',
+        text: "Welcome to the watsonx Challenge 2026. We are Team KTOJ, and today we show you how IBM Bob transforms the way Expert Services engineers work — cutting hours of specialist effort down to minutes."
+      },
+      {
+        id: uid(),
+        label: 'Slide 02 · Problem',
+        text: "Our team faces three pain points every day: overnight server failures requiring senior engineers; expertise in RHEL, DB2, and OpenShift locked in a few veterans; and the burden of writing health-check reports. All three come down to the same task — understand, judge, and document — which is exactly where AI excels."
+      },
+      {
+        id: uid(),
+        label: 'Slide 03 · Solution',
+        text: "With Bob, the workflow is simple: give a plain-English instruction, Bob calls the right MCP tools over SSH, and delivers a structured report. Core dump analysis: four hours down to five minutes. DB2 health check: 60 minutes down to two. OpenShift diagnostics: half a day down to ten minutes. Validated results."
+      },
+      {
+        id: uid(),
+        label: 'Slide 04 · UC-1 Core Dump',
+        text: "Use case one: core dump analysis. We handed Bob a production RHEL core dump. Bob ran GDB, identified a segmentation fault, extracted the call stack, and produced a structured HTML root-cause report — all without a single manual command."
+      },
+      {
+        id: uid(),
+        label: 'Slide 05 · UC-2 OpenShift',
+        text: "Use case two: OpenShift must-gather analysis. Bob generated an 11-section diagnostic report from one prompt, surfacing a kernel privilege-escalation CVE, a silently-firing Alertmanager with no receivers, and an end-of-life OCP version with an upgrade recommendation."
+      },
+      {
+        id: uid(),
+        label: 'Slide 06 · UC-3 RHEL + DB2',
+        text: "Use case three: RHEL plus Db2 health check. Bob connected via SSH MCP to a live RHEL 9.6 server, ran 21 diagnostic checks, and delivered a full HTML report with three critical findings in under two minutes — work that takes 30 to 60 minutes manually."
+      },
+      {
+        id: uid(),
+        label: 'Slide 07 · Architecture',
+        text: "Bob runs on the engineer's laptop and connects through two custom MCP servers — remote-linux-server and db2-health-server — deployed on the RHEL host and accessed over an SSH tunnel. A single mcp.json file wires everything together. Bob selects and sequences tools automatically."
+      },
+      {
+        id: uid(),
+        label: 'Slide 08 · Impact',
+        text: "The business impact: 95 percent reduction in incident analysis time, zero specialist skills required to operate Bob, and institutional knowledge captured in AI rather than locked in individuals. Senior engineers focus on higher-value work; junior engineers are effective from day one."
+      },
+      {
+        id: uid(),
+        label: 'Slide 09 · Summary',
+        text: "Bob is not a chatbot — it is an AI pair engineer. We validated three real-world use cases producing structured reports in minutes. The next step is a fully autonomous incident response agent: detect, analyse, remediate, and report — with humans approving the final action."
+      },
+      {
+        id: uid(),
+        label: 'Slide 10 · Thank You',
+        text: "That concludes our demonstration. Thank you for your time. We are Team KTOJ from IBM Technology Expert Services Japan. We'd be happy to take any questions."
+      }
+    ];
+    save();
+    render();
+  }
+})();
+</script>
+</body>
+</html>
